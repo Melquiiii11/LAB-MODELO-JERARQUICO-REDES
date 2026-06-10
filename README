@@ -1,0 +1,360 @@
+RED CORP
+
+REQUIRIMIENTO
+
+
+NETWORK
+		ROUTER
+-INT G0/0
+	10.0.0.1 255.255.25.252
+-INT G0/1
+	10.0.0.5 255.255.255.252
+
+
+
+		SL3A
+INT G0/1
+	10.0.0.2 255.255.255.252
+INT G0/2
+	-RED CORP 10.0.0.1 VLSM
+		-VLAN 10: 10.0.1.1 255.255.255.128 = CLIENT
+		-VLAN 20: 10.0.1.128 255.255.255.248 = VOICE
+		-VLAN 30: 10.0.1.137 255.255.255.248 = MANAGMENT
+
+
+
+
+		SL3B
+INT G0/1
+	10.0.0.6 255.255.255.252
+INT G0/2
+	-RED CORP 10.0.0.1 VLSM
+		-VLAN 10: 10.0.1.1 255.255.255.128 = CLIENT
+		-VLAN 20: 10.0.1.128 255.255.255.248 = VOICE
+		-VLAN 30: 10.0.1.137 255.255.255.248 = MANAGMENT
+
+
+
+
+
+1. CONFIGURAR LA CAPA CORE: CON CONEXIONES EXTOERIORES ENRUNTANDO PAQUETES AH OTRAS CAMPUST
+	-INT () CON RED 10.0.0.1 VLSM PARA CADA VLAN.
+2. CONFIGURAR CAPA DISTRIBUTION
+	-HSRP
+	
+	
+	
+
+
+
+
+
+CONFIGURACIONES
+
+=>EIGRP
+=>ETHERCHANNEL
+=>SPN CON VSPT+
+=>HSRP
+=>server dhcp
+
+CAPA CORE
+
+R1
+
+en
+conf t
+hostname core_R1
+
+ip domain name core_R1
+ipv6 unicast-routing
+
+int g0/0
+ip address 10.0.0.1 255.255.25.252
+no shut
+exit
+
+int g0/1
+ip address 10.0.0.5 255.255.255.252
+no shut
+exit
+
+int s0/3/0
+ipv6 enable
+ipv6 address 2001:db8:acad::1/64
+no shut
+exit
+
+
+router eigrp 110
+net 10.0.0.0 255.255.255.0
+variance 2
+
+CAPA DISTRIBUTION
+
+SL3-A
+
+en
+conf t
+hostname SL3-A
+
+ip routing
+ip domain name SL3-A
+
+int g0/1
+no switchport
+ip address 10.0.0.2 255.255.255.252
+no shut
+exit
+
+int vlan 10
+ip address 10.0.1.2 255.255.255.128
+ip helper-address 10.0.1.141
+standby 10 ip 10.0.1.1
+standby 10 priority 100
+standby 10 preempt
+exit
+
+
+int vlan 20
+ip address 10.0.1.129 255.255.255.248
+ip helper-address 10.0.1.141
+standby 20 ip 10.0.1.128
+standby 20 priority 100
+standby 20 preempt
+exit
+
+int vlan 30
+ip address 10.0.1.138 255.255.255.248
+ip helper-address 10.0.1.141
+standby 30 ip 10.0.1.137
+standby 30 priority 120
+standby 30 preempt
+exit
+
+int range f0/1-3
+switchport trunk encapsulation dot1q
+switchport mode trunk
+switchport trunk allowed vlan all
+no shut
+exit
+
+
+router eigrp 110
+net 10.0.0.0 255.255.255.0
+net 10.0.1.0 255.255.255.0
+no auto-summary
+exit
+
+
+spanning-tree mode pvst
+spanning-tree vlan 10 root primary
+spanning-tree vlan 20 root secondary
+spanning-tree vlan 30 root primary
+
+int range f0/4-5
+switchport trunk encapsulation dot1q
+switchport mode trunk
+switchport trunk allowed vlan all
+channel group 1 mode auto
+
+SL3-B
+en
+conf t
+hostname SL3-B
+
+ip routing
+ip domain name SL3-B
+
+int g0/1
+no switchport
+ip address 10.0.0.6 255.255.255.252
+no shut
+exit
+
+
+int vlan 10
+ip address 10.0.1.3 255.255.255.128
+ip helper-address 10.0.1.141
+standby 10 ip 10.0.1.1
+standby 10 priority 110
+standby 10 preempt
+exit
+
+
+int vlan 20
+ip address 10.0.1.130 255.255.255.248
+ip helper-address 10.0.1.141
+standby 20 ip 10.0.1.128
+standby 20 priority 100
+standby 20 preempt
+exit
+
+int vlan 30
+ip address 10.0.1.139 255.255.255.248
+ip helper-address 10.0.1.141
+standby 30 ip 10.0.1.137
+standby 30 priority 110
+standby 30 preempt
+exit
+
+int range f0/1-3
+switchport trunk encapsulation dot1q
+switchport mode trunk
+switchport trunk allowed vlan all
+no shut
+exit
+
+
+router eigrp 110
+net 10.0.0.0 255.255.255.0
+net 10.0.1.130 255.255.255.248
+net 10.0.1.139 255.255.255.248
+net 10.0.1.3 255.255.255.128
+
+no auto-summary
+exit
+
+
+spanning-tree mode pvst
+spanning-tree vlan 10 root secondary
+spanning-tree vlan 20 root primary
+spanning-tree vlan 30 root secondary
+
+int range f0/4-5
+switchport trunk encapsulation dot1q
+switchport mode trunk
+switchport trunk allowed vlan all
+channel group 1 mode auto
+
+
+CAPA ACCESS
+
+SW1
+
+en
+conf t
+hostname SW1
+
+ip domain name SW1
+
+vtp domain SW1
+vtp mode server
+vtp version 2
+
+
+
+vlan 10
+name CLIENT
+vlan 20
+name VOICE
+vlan 30 MANAGMENT
+
+
+int range f0/1-2
+switchport mode trunk
+switchport trunk allowed vlan all
+no shut
+exit
+
+int range f0/3-15
+switchport mode access
+switchport access vlan 10
+no shut
+exit
+
+int range f0/16-20
+switchport voice vlan 20
+no shut
+exit
+
+int range f0/21-23
+switchport mode access
+switchport access vlan 30
+no shut
+exit
+
+
+
+
+SW2
+
+en
+conf t
+hostname SW2
+
+ip domain name SW2
+
+vtp domain SW1
+vtp mode client
+
+
+
+
+
+int range f0/1-2
+switchport mode trunk
+switchport trunk allowed vlan all
+no shut
+exit
+
+int range f0/3-15
+switchport mode access
+switchport access vlan 10
+no shut
+exit
+
+int range f0/16-20
+switchport voice vlan 20
+no shut
+exit
+
+int range f0/21-23
+switchport mode access
+switchport access vlan 30
+no shut
+exit
+
+
+
+SW3
+
+en
+conf t
+hostname SW3
+
+ip domain name SW3
+
+vtp domain SW1
+vtp mode client
+
+
+
+int g0/1
+switchport mode access
+switchport access vlan 30
+no shut
+exit
+
+
+int range f0/1-2
+switchport mode trunk
+switchport trunk allowed vlan all
+no shut
+exit
+
+int range f0/3-15
+switchport mode access
+switchport access vlan 10
+no shut
+exit
+
+int range f0/16-20
+switchport voice vlan 20
+no shut
+exit
+
+int range f0/21-23
+switchport mode access
+switchport access vlan 30
+no shut
+exit
